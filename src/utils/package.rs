@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+  collections::HashMap,
+  io::{Error, ErrorKind},
+};
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Category {
@@ -102,20 +105,23 @@ pub enum SupportedTarget {
 }
 
 impl SupportedTarget {
-  pub fn from_id(s: &str) -> Self {
+  pub fn from_id(s: &str) -> Result<Self, Error> {
     match s {
-      "ubuntu" => SupportedTarget::Ubuntu,
-      "debian" => SupportedTarget::Debian,
-      "arch" => SupportedTarget::Arch,
-      "fedora" => SupportedTarget::Fedora,
-      "opensuse" => SupportedTarget::OpenSUSE,
-      "nix" => SupportedTarget::Nix,
-      "flatpak" => SupportedTarget::Flatpak,
-      "snap" => SupportedTarget::Snap,
-      "homebrew" => SupportedTarget::Homebrew,
-      "npm" => SupportedTarget::Npm,
-      "script" => SupportedTarget::Script,
-      &_ => panic!("Unknown target: {}", s),
+      "ubuntu" => Ok(SupportedTarget::Ubuntu),
+      "debian" => Ok(SupportedTarget::Debian),
+      "arch" => Ok(SupportedTarget::Arch),
+      "fedora" => Ok(SupportedTarget::Fedora),
+      "opensuse" => Ok(SupportedTarget::OpenSUSE),
+      "nix" => Ok(SupportedTarget::Nix),
+      "flatpak" => Ok(SupportedTarget::Flatpak),
+      "snap" => Ok(SupportedTarget::Snap),
+      "homebrew" => Ok(SupportedTarget::Homebrew),
+      "npm" => Ok(SupportedTarget::Npm),
+      "script" => Ok(SupportedTarget::Script),
+      &_ => Err(Error::new(
+        ErrorKind::InvalidInput,
+        format!("Unknown target: {}", s),
+      )),
     }
   }
 
@@ -169,10 +175,9 @@ pub struct IconDef {
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct AppData {
   id: String,
-  name: String, 
+  name: String,
   description: String,
-  category: String,
-
+  category: Category,
   icon: IconDef,
   targets: HashMap<SupportedTarget, String>, // target_id -> command
   #[serde(rename = "unavailableReason", skip_serializing_if = "Option::is_none")]
