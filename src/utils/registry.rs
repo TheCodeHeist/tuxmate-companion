@@ -1,6 +1,8 @@
 use std::env::var;
 use std::path::Path;
 
+use crate::utils::package::AppData;
+
 // This handles all the application registry related stuff, like fetching the list of verified apps etc., all from the main TuxMate GitHub repository.
 const APP_REGISTRY_DIR_URL: &str =
   "https://raw.githubusercontent.com/abusoww/tuxmate/refs/heads/main/src/lib/";
@@ -86,4 +88,27 @@ pub fn refresh_app_registry() -> Result<(), Box<dyn std::error::Error>> {
     }
   }
   Ok(())
+}
+
+pub fn load_app_registry_by_id(app_id: String) -> Result<AppData, Box<dyn std::error::Error>> {
+  let config_home = get_config_home()?;
+
+  // loop through all the files in the app_registry/apps directory and find the app with the given id
+  let app_registry_path = Path::new(&config_home).join("app_registry").join("apps");
+  for entry in std::fs::read_dir(app_registry_path)? {
+    let entry = entry?;
+    let path = entry.path();
+
+    if path.is_file() {
+      let content = std::fs::read_to_string(&path)?;
+      let apps: Vec<AppData> = serde_json::from_str(&content)?;
+      for app in apps {
+        if app.id == app_id {
+          return Ok(app);
+        }
+      }
+    }
+  }
+
+  Err(format!("App not found: {}", app_id).into())
 }

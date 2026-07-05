@@ -2,8 +2,13 @@
 pub mod utils;
 
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 
-use crate::utils::{distro::DistroInfo, package::SupportedTarget, registry::refresh_app_registry};
+use crate::utils::{
+  distro::DistroInfo,
+  package::SupportedTarget,
+  registry::{load_app_registry_by_id, refresh_app_registry},
+};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -25,6 +30,13 @@ enum Commands {
     /// List of packages to install
     #[arg(required = true, num_args = 1..)]
     packages: Vec<String>,
+  },
+
+  /// Get information about a specific package
+  Info {
+    /// The package ID to get information about
+    #[arg(required = true)]
+    package_id: String,
   },
 }
 
@@ -56,25 +68,80 @@ fn parse_package_arg(arg: String) -> PackageDef {
 fn main() {
   let args = Args::parse();
 
-  if let Some(Commands::Distro) = args.command {
-    let mut distro = DistroInfo::new();
-    distro.fetch().unwrap();
-    println!("Current Linux distribution: {:?}", distro);
-  } else if let Some(Commands::Refresh) = args.command {
-    println!("Refreshing cached app registry data...");
-
-    match refresh_app_registry() {
-      Ok(_) => println!("App registry refreshed successfully."),
-      Err(e) => eprintln!("Failed to refresh app registry: {}", e),
+  match args.command {
+    Some(Commands::Distro) => {
+      let mut distro = DistroInfo::new();
+      distro.fetch().unwrap();
+      println!(
+        "{}\n",
+        "Current Linux distribution".green().bold().underline()
+      );
+      println!("{} {}", "Name:".blue(), distro.name);
+      println!("{} {}", "Version:".blue(), distro.version);
+      println!("{} {}", "ID:".blue(), distro.id);
     }
-  } else if let Some(Commands::Install { packages }) = args.command {
-    let parsed_packages: Vec<PackageDef> = packages
-      .iter()
-      .map(|p| parse_package_arg(p.clone()))
-      .collect();
-    println!("Installing packages: {:?}", parsed_packages);
-  } else {
-    println!("No arguments provided. Use --help for usage information.");
+    Some(Commands::Refresh) => {
+      println!("Refreshing cached app registry data...");
+
+      match refresh_app_registry() {
+        Ok(_) => println!("{}", "App registry refreshed successfully.".green()),
+        Err(e) => eprintln!(
+          "{} {}",
+          "Failed to refresh app registry:".red(),
+          e.to_string().red()
+        ),
+      }
+    }
+    Some(Commands::Install { packages }) => {
+      let parsed_packages: Vec<PackageDef> = packages
+        .iter()
+        .map(|p| parse_package_arg(p.clone()))
+        .collect();
+      println!("Installing packages: {:?}", parsed_packages);
+    }
+    Some(Commands::Info { package_id }) => match load_app_registry_by_id(package_id) {
+      Ok(app) => {
+        println!(
+          "{}{}{}\n",
+          "App information for '".green().bold().underline(),
+          app.name.green().bold().underline(),
+          "'".green().bold().underline()
+        );
+
+        println!("{} {}", "App ID:".blue(), app.id);
+        println!("{} {}", "Name:".blue(), app.name);
+        println!("{} {}", "Description:".blue(), app.description);
+        println!("{} {}", "Category:".blue(), app.category.to_name());
+
+        println!("\n{}", "Supported Targets:".blue().bold().underline());
+        for (target, handle) in app.targets.iter() {
+          println!("  - {}: \"{}\"", target.to_name().bright_yellow(), handle);
+        }
+
+        if let Some(reason) = app.unavailable_reason {
+          println!("\n{} {} {}", "**".yellow(), reason.yellow(), "**".yellow());
+        }
+        if let Some(note) = app.note {
+          println!("\n{} {}", "Note:".blue().bold(), note.blue());
+        }
+      }
+      Err(e) => {
+        eprintln!(
+          "{} {}",
+          "Error occurred while fetching app info:".red(),
+          e.to_string().red()
+        );
+
+        println!(
+          "\n{} {}",
+          "Tip:".blue().bold(),
+          "Try running 'tuxmate refresh' to update the app registry.".blue()
+        );
+      }
+    },
+    None => {
+      println!("No command provided. Use --help for usage information.");
+    }
   }
 }
 

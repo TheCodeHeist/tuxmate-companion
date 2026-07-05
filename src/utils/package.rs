@@ -34,7 +34,7 @@ pub enum Category {
 }
 
 impl Category {
-  pub fn from_str(s: &str) -> Self {
+  pub fn from_name(s: &str) -> Self {
     match s {
       "AI Tools" => Category::AITools,
       "CLI Tools" => Category::CLITools,
@@ -56,7 +56,7 @@ impl Category {
     }
   }
 
-  pub fn to_str(&self) -> &str {
+  pub fn to_name(&self) -> &str {
     match self {
       Category::AITools => "AI Tools",
       Category::CLITools => "CLI Tools",
@@ -74,6 +74,27 @@ impl Category {
       Category::Terminal => "Terminal",
       Category::VPNNetwork => "VPN & Network",
       Category::WebBrowsers => "Web Browsers",
+    }
+  }
+
+  pub fn to_id(&self) -> &str {
+    match self {
+      Category::AITools => "ai-tools",
+      Category::CLITools => "cli-tools",
+      Category::Communication => "communication",
+      Category::Creative => "creative",
+      Category::DevEditors => "dev-editors",
+      Category::DevLanguages => "dev-languages",
+      Category::DevTools => "dev-tools",
+      Category::FileSharing => "file-sharing",
+      Category::Gaming => "gaming",
+      Category::Media => "media",
+      Category::Office => "office",
+      Category::Security => "security",
+      Category::System => "system",
+      Category::Terminal => "terminal",
+      Category::VPNNetwork => "vpn-network",
+      Category::WebBrowsers => "web-browsers",
     }
   }
 }
@@ -174,14 +195,14 @@ pub struct IconDef {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct AppData {
-  id: String,
-  name: String,
-  description: String,
-  category: Category,
-  icon: IconDef,
-  targets: HashMap<SupportedTarget, String>, // target_id -> command
+  pub id: String,
+  pub name: String,
+  pub description: String,
+  pub category: Category,
+  pub icon: IconDef,
+  pub targets: HashMap<SupportedTarget, String>, // target_id -> command
   #[serde(rename = "unavailableReason", skip_serializing_if = "Option::is_none")]
-  unavailable_reason: Option<String>,
+  pub unavailable_reason: Option<String>,
   #[serde(skip_serializing_if = "Option::is_none")]
-  note: Option<String>,
+  pub note: Option<String>,
 }
