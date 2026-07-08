@@ -1,7 +1,9 @@
 use std::env::var;
 use std::path::Path;
 
-use crate::utils::package::AppData;
+use chrono::{DateTime, Utc};
+
+use crate::utils::package::{AppData, SupportedTarget};
 
 // This handles all the application registry related stuff, like fetching the list of verified apps etc., all from the main TuxMate GitHub repository.
 const APP_REGISTRY_DIR_URL: &str =
@@ -111,4 +113,122 @@ pub fn load_app_registry_by_id(app_id: String) -> Result<AppData, Box<dyn std::e
   }
 
   Err(format!("App not found: {}", app_id).into())
+}
+
+pub fn resolve_packages_by_id_and_target(
+  packages: Vec<String>,
+  target: &SupportedTarget,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+  let mut resolved_packages = Vec::new();
+
+  for package in packages {
+    let app_data = match load_app_registry_by_id(package.clone()) {
+      Ok(data) => data,
+      Err(_) => return Err(format!("App not found: {}", package).into()),
+    };
+
+    if let Some(target_package) = app_data.targets.get(&target) {
+      resolved_packages.push(target_package.clone());
+    } else {
+      return Err(
+        format!(
+          "The following distribution target ({:?}) is not supported for the TuxMate Package package: {}...\nPlease run `tuxmate info {}` to check the supported targets for this package.",
+          target, package, package
+        )
+        .into(),
+      );
+    }
+  }
+
+  Ok(resolved_packages)
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct KnownPackages {
+  #[serde(rename = "_comment", skip_serializing_if = "Option::is_none")]
+  pub comment: Option<String>,
+  pub packages: Vec<String>,
+}
+
+/// Load the known AUR packages from the local app registry, which do follow the AUR common suffix conventions. This is used to verify if a package is an AUR package or not.
+pub fn load_known_aur_packages() -> Result<KnownPackages, Box<dyn std::error::Error>> {
+  let config_home = get_config_home()?;
+  let aur_packages_path = Path::new(&config_home)
+    .join("app_registry")
+    .join("aur-packages.json");
+
+  if !aur_packages_path.exists() {
+    return Err("AUR packages file not found. Please refresh the app registry.".into());
+  }
+
+  let content = std::fs::read_to_string(aur_packages_path)?;
+  let known_aur_packages: KnownPackages = serde_json::from_str(&content)?;
+
+  Ok(known_aur_packages)
+}
+
+/// Load the known unfree Nix packages from the local app registry. This is used to verify if a package is an unfree Nix package or not.
+pub fn load_known_unfree_nix_packages() -> Result<KnownPackages, Box<dyn std::error::Error>> {
+  let config_home = get_config_home()?;
+  let unfree_nix_packages_path = Path::new(&config_home)
+    .join("app_registry")
+    .join("nix-unfree.json");
+
+  if !unfree_nix_packages_path.exists() {
+    return Err("Unfree Nix packages file not found. Please refresh the app registry.".into());
+  }
+
+  let content = std::fs::read_to_string(unfree_nix_packages_path)?;
+  let known_unfree_nix_packages: KnownPackages = serde_json::from_str(&content)?;
+
+  Ok(known_unfree_nix_packages)
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct VerifiedAppsMetadata {
+  #[serde(rename = "fetchedAt", skip_serializing_if = "Option::is_none")]
+  pub fetched_at: Option<DateTime<Utc>>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct VerifiedApps {
+  pub meta: Option<VerifiedAppsMetadata>,
+  pub count: Option<u32>,
+  pub apps: Vec<String>,
+}
+
+/// Load the verified Flathub packages from the local app registry. This is used to verify if a package is a verified Flathub package or not.
+pub fn load_verified_flathub_packages() -> Result<VerifiedApps, Box<dyn std::error::Error>> {
+  let config_home = get_config_home()?;
+  let flathub_packages_path = Path::new(&config_home)
+    .join("app_registry")
+    .join("verified-flatpaks.json");
+
+  if !flathub_packages_path.exists() {
+    return Err(
+      "Verified Flathub packages file not found. Please refresh the app registry.".into(),
+    );
+  }
+
+  let content = std::fs::read_to_string(flathub_packages_path)?;
+  let known_flathub_packages: VerifiedApps = serde_json::from_str(&content)?;
+
+  Ok(known_flathub_packages)
+}
+
+/// Load the verified Snap packages from the local app registry. This is used to verify if a package is a verified Snap package or not.
+pub fn load_verified_snap_packages() -> Result<VerifiedApps, Box<dyn std::error::Error>> {
+  let config_home = get_config_home()?;
+  let snap_packages_path = Path::new(&config_home)
+    .join("app_registry")
+    .join("verified-snaps.json");
+
+  if !snap_packages_path.exists() {
+    return Err("Verified Snap packages file not found. Please refresh the app registry.".into());
+  }
+
+  let content = std::fs::read_to_string(snap_packages_path)?;
+  let known_snap_packages: VerifiedApps = serde_json::from_str(&content)?;
+
+  Ok(known_snap_packages)
 }

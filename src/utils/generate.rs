@@ -1,3 +1,125 @@
+use std::collections::HashMap;
+
+use crate::{
+  PackageDef,
+  utils::{
+    distro::DistroInfo, package::SupportedTarget, registry::resolve_packages_by_id_and_target,
+  },
+};
+
+/// Generate commands for package installation
+pub fn generate_installation_command(
+  packages: Vec<PackageDef>,
+) -> Result<String, Box<dyn std::error::Error>> {
+  let mut distro_info = DistroInfo::new();
+  distro_info.fetch()?;
+
+  if packages.is_empty() {
+    return Ok(String::new());
+  }
+
+  let mut sorted_list: HashMap<SupportedTarget, Vec<String>> = HashMap::new();
+
+  for package in packages {
+    match package.target_id {
+      Some(id) => {
+        sorted_list
+          .entry(id)
+          .or_insert_with(Vec::new)
+          .push(package.package_id);
+      }
+      None => {
+        // If no target_id is provided, try to detect the target based on the current distro
+        let detected_target = if distro_info.is_ubuntu {
+          SupportedTarget::Ubuntu
+        } else if distro_info.is_debian {
+          SupportedTarget::Debian
+        } else if distro_info.is_arch {
+          SupportedTarget::Arch
+        } else if distro_info.is_fedora {
+          SupportedTarget::Fedora
+        } else if distro_info.is_opensuse {
+          SupportedTarget::OpenSUSE
+        } else if distro_info.is_nixos {
+          SupportedTarget::Nix
+        } else {
+          return Err(
+            format!(
+              "Could not infer a supported distribution for the TuxMate package: {}",
+              package.package_id
+            )
+            .into(),
+          );
+        };
+
+        sorted_list
+          .entry(detected_target)
+          .or_insert_with(Vec::new)
+          .push(package.package_id);
+      }
+    }
+  }
+
+  let mut command = String::from("");
+
+  for (target, packages) in sorted_list {
+    let resolved_packages = match resolve_packages_by_id_and_target(packages, &target) {
+      Ok(packages) => packages,
+      Err(e) => return Err(e),
+    };
+
+    match target {
+      SupportedTarget::Debian | SupportedTarget::Ubuntu => {
+        command.push_str(&generate_apt_command(resolved_packages));
+        command.push_str(" && ");
+      }
+      SupportedTarget::Arch => {
+        command.push_str(&generate_pacman_command(resolved_packages));
+        command.push_str(" && ");
+      }
+      SupportedTarget::Fedora => {
+        command.push_str(&generate_dnf_command(resolved_packages));
+        command.push_str(" && ");
+      }
+      SupportedTarget::OpenSUSE => {
+        command.push_str(&generate_zypper_command(resolved_packages));
+        command.push_str(" && ");
+      }
+      SupportedTarget::Nix => {
+        command.push_str(&generate_nix_command(resolved_packages));
+        command.push_str(" && ");
+      }
+      SupportedTarget::Flatpak => {
+        command.push_str(&generate_flatpak_command(resolved_packages));
+        command.push_str(" && ");
+      }
+      SupportedTarget::Snap => {
+        command.push_str(&generate_snap_command(resolved_packages));
+        command.push_str(" && ");
+      }
+      SupportedTarget::Homebrew => {
+        command.push_str(&generate_homebrew_command(resolved_packages));
+        command.push_str(" && ");
+      }
+      SupportedTarget::Npm => {
+        command.push_str(&generate_npm_command(resolved_packages));
+        command.push_str(" && ");
+      }
+      SupportedTarget::Script => {
+        command.push_str(&generate_script_command(resolved_packages));
+        command.push_str(" && ");
+      }
+    }
+  }
+
+  // Remove the trailing " && " from the command
+  if !command.is_empty() {
+    command.truncate(command.len().saturating_sub(4));
+  }
+
+  Ok(command)
+}
+
 /// Generate a command to install packages using apt package manager (Debian/Ubuntu)
 fn generate_apt_command(apt_packages: Vec<String>) -> String {
   format!(

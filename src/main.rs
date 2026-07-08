@@ -6,6 +6,7 @@ use colored::Colorize;
 
 use crate::utils::{
   distro::DistroInfo,
+  generate::generate_installation_command,
   package::SupportedTarget,
   registry::{load_app_registry_by_id, refresh_app_registry},
 };
@@ -41,9 +42,9 @@ enum Commands {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct PackageDef {
-  package_id: String,
-  target_id: Option<SupportedTarget>,
+pub struct PackageDef {
+  pub package_id: String,
+  pub target_id: Option<SupportedTarget>,
 }
 
 fn parse_package_arg(arg: String) -> PackageDef {
@@ -97,7 +98,21 @@ fn main() {
         .iter()
         .map(|p| parse_package_arg(p.clone()))
         .collect();
-      println!("Installing packages: {:?}", parsed_packages);
+
+      match generate_installation_command(parsed_packages) {
+        Ok(command) => {
+          println!(
+            "{}\n",
+            "Generated installation command".green().bold().underline(),
+          );
+          println!("{}", command);
+        }
+        Err(e) => eprintln!(
+          "{} {}",
+          "Failed to generate installation command:".red().underline(),
+          e.to_string().red()
+        ),
+      }
     }
     Some(Commands::Info { package_id }) => match load_app_registry_by_id(package_id) {
       Ok(app) => {

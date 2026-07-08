@@ -16,12 +16,14 @@ pub struct DistroInfo {
   pub is_arch: bool,
   pub is_fedora: bool,
   pub is_opensuse: bool,
+  pub is_nixos: bool,
 
   // Package Managers & Tools
   pub has_nix: bool,
   pub has_flatpak: bool,
   pub has_snap: bool,
   pub has_homebrew: bool,
+  pub has_npm: bool,
 
   // AUR specific
   pub has_aur: bool,
@@ -41,11 +43,13 @@ impl DistroInfo {
       is_arch: false,
       is_fedora: false,
       is_opensuse: false,
+      is_nixos: false,
 
       has_nix: false,
       has_flatpak: false,
       has_snap: false,
       has_homebrew: false,
+      has_npm: false,
 
       has_aur: false,
       aur_helper: None,
@@ -70,6 +74,11 @@ impl DistroInfo {
 
     let aur_info = self.detect_aur_helper();
 
+    let is_nixos = id.contains("nixos")
+      || name.to_lowercase().contains("nixos")
+      || fs::metadata("/etc/nixos").is_ok()
+      || fs::metadata("/run/current-system").is_ok();
+
     *self = DistroInfo {
       pretty_name: name.clone(),
       id: id.clone(),
@@ -77,15 +86,20 @@ impl DistroInfo {
       version,
 
       is_ubuntu: id.contains("ubuntu") || id.contains("linuxmint") || id.contains("pop"),
-      is_debian: id.contains("debian"),
+      is_debian: id.contains("debian")
+        || id.contains("raspbian")
+        || id.contains("devuan")
+        || id.contains("kali"),
       is_arch: id.contains("arch") || id.contains("manjaro") || id.contains("endeavouros"),
       is_fedora: id.contains("fedora"),
       is_opensuse: id.contains("opensuse"),
+      is_nixos,
 
       has_nix: self.check_nix(),
       has_flatpak: self.check_flatpak(),
       has_snap: self.check_snap(),
       has_homebrew: self.check_homebrew(),
+      has_npm: self.check_npm(),
 
       has_aur: aur_info.is_some(),
       aur_helper: aur_info,
@@ -155,5 +169,9 @@ impl DistroInfo {
     fs::metadata("/home/linuxbrew/.linuxbrew").is_ok()
       || fs::metadata("/opt/homebrew").is_ok()
       || std::env::var("HOMEBREW_PREFIX").is_ok()
+  }
+
+  fn check_npm(&self) -> bool {
+    self.check_command("npm")
   }
 }
