@@ -1,0 +1,7 @@
+{
+  "workbench.colorTheme": "Catppuccin Mocha",
+  "workbench.iconTheme": "vs-seti",
+  "glassit-linux.opacity": 50,
+  "vscode-blur-linux.opacity": 88,
+  "vscode-blur-linux.blur": false
+}
