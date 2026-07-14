@@ -37,9 +37,25 @@ ARCH=$(arch)
 # Try jq first, fallback to grep/sed
 asset_url=""
 if command -v jq >/dev/null 2>&1; then
-  asset_url=$(jq -r --arg arch "$ARCH" '.assets[] | select(.name|test("linux";"i") and (.name|test($arch;"i"))) | .browser_download_url' "$json" | head -n1)
+  asset_url=$(jq -r --arg arch "$ARCH" '
+    (.assets // [])
+    | map(select(((.name // "") | test("linux";"i")) and ((.name // "") | test($arch;"i"))))
+    | .[0] // empty
+    | .browser_download_url // empty
+  ' "$json")
+  if [ -z "$asset_url" ]; then
+    asset_url=$(jq -r '
+      (.assets // [])
+      | map(select((.name // "") | test("^tuxmate$";"i")))
+      | .[0] // empty
+      | .browser_download_url // empty
+    ' "$json")
+  fi
 else
-  asset_url=$(grep -oE '"browser_download_url":\s*"[^"]+"' "$json" | sed -E 's/"browser_download_url":\s*"([^"]+)"/\1/' | grep -i linux | grep -i "$ARCH" | head -n1 || true)
+  asset_url=$(grep -oE '"browser_download_url":\s*"[^"]+"' "$json" | sed -E 's/"browser_download_url":\s*"([^"]+)"/\1/' | grep -Ei 'linux' | grep -i "$ARCH" | head -n1 || true)
+  if [ -z "$asset_url" ]; then
+    asset_url=$(grep -oE '"browser_download_url":\s*"[^"]+"' "$json" | sed -E 's/"browser_download_url":\s*"([^"]+)"/\1/' | grep -Ei 'tuxmate' | head -n1 || true)
+  fi
 fi
 
 if [ -z "$asset_url" ]; then
