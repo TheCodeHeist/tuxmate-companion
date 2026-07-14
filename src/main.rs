@@ -6,7 +6,7 @@ use colored::Colorize;
 
 use crate::utils::{
   distro::DistroInfo,
-  generate::generate_installation_command,
+  generate::CommandGenerator,
   package::SupportedTarget,
   registry::{load_app_registry_by_id, refresh_app_registry},
 };
@@ -99,17 +99,22 @@ fn main() {
         .map(|p| parse_package_arg(p.clone()))
         .collect();
 
-      match generate_installation_command(parsed_packages) {
-        Ok(command) => {
-          println!(
-            "{}\n",
-            "Generated installation command".green().bold().underline(),
-          );
-          println!("{}", command);
-        }
+      let mut generator = CommandGenerator::init(parsed_packages.clone());
+
+      match generator.generate_installation_command() {
+        Ok(_) => {}
         Err(e) => eprintln!(
           "{} {}",
           "Failed to generate installation command:".red().underline(),
+          e.to_string().red()
+        ),
+      }
+
+      match generator.install() {
+        Ok(_) => {}
+        Err(e) => eprintln!(
+          "{} {}",
+          "Failed to install packages:".red().underline(),
           e.to_string().red()
         ),
       }

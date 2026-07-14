@@ -3,7 +3,13 @@ use std::path::Path;
 
 use chrono::{DateTime, Utc};
 
-use crate::utils::package::{AppData, SupportedTarget};
+use crate::{
+  PackageDef,
+  utils::{
+    distro::DistroInfo,
+    package::{AppData, SupportedTarget},
+  },
+};
 
 // This handles all the application registry related stuff, like fetching the list of verified apps etc., all from the main TuxMate GitHub repository.
 const APP_REGISTRY_DIR_URL: &str =
@@ -115,33 +121,73 @@ pub fn load_app_registry_by_id(app_id: String) -> Result<AppData, Box<dyn std::e
   Err(format!("App not found: {}", app_id).into())
 }
 
-pub fn resolve_packages_by_id_and_target(
-  packages: Vec<String>,
-  target: &SupportedTarget,
-) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-  let mut resolved_packages = Vec::new();
+pub fn resolve_package(
+  package: &PackageDef,
+  distro_info: &DistroInfo,
+) -> Result<String, Option<Vec<String>>> {
+  let app_data = match load_app_registry_by_id(package.package_id.clone()) {
+    Ok(data) => data,
+    Err(_) => return Err(None), // Return None if the app is not found
+  };
 
-  for package in packages {
-    let app_data = match load_app_registry_by_id(package.clone()) {
-      Ok(data) => data,
-      Err(_) => return Err(format!("App not found: {}", package).into()),
-    };
+  let target_id = match package.target_id.clone() {
+    Some(id) => id,
+    None => match distro_info.variant.as_ref() {
+      Some(variant) => variant.to_target(),
+      None => return Err(None), // Return None if the target is not specified and cannot be inferred
+    },
+  };
 
-    if let Some(target_package) = app_data.targets.get(&target) {
-      resolved_packages.push(target_package.clone());
-    } else {
-      return Err(
-        format!(
-          "The following distribution target ({:?}) is not supported for the TuxMate Package package: {}...\nPlease run `tuxmate info {}` to check the supported targets for this package.",
-          target, package, package
-        )
-        .into(),
-      );
-    }
+  // Clone targets to avoid multiple borrows of app_data.targets
+  let targets = app_data.targets.clone();
+
+  if let Some(target_package) = targets.get(&target_id) {
+    Ok(target_package.clone())
+  } else {
+    // If the target is not supported, return an error with the list of supported targets
+    let supported_targets: Vec<String> = targets
+      .keys()
+      .filter_map(|t| {
+        // Return only the options relevant to the current distro variant, if available, using is_target_supported DistroInfo method
+        if distro_info.is_target_supported(&Some(t.clone())) {
+          Some(t.to_id().to_string())
+        } else {
+          None
+        }
+      })
+      .collect::<Vec<String>>();
+
+    Err(Some(supported_targets))
   }
-
-  Ok(resolved_packages)
 }
+
+// pub fn resolve_packages_by_id_and_target(
+//   packages: Vec<String>,
+//   target: &Option<SupportedTarget>,
+// ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+//   let mut resolved_packages = Vec::new();
+
+//   for package in packages {
+//     let app_data = match load_app_registry_by_id(package.clone()) {
+//       Ok(data) => data,
+//       Err(_) => return Err(format!("App not found: {}", package).into()),
+//     };
+
+//     if let Some(target_package) = app_data.targets.get(target.as_ref().unwrap_or_e  (|| )) {
+//       resolved_packages.push(target_package.clone());
+//     } else {
+//       return Err(
+//         format!(
+//           "The following distribution target ({:?}) is not supported for the TuxMate Package package: {}...\nPlease run `tuxmate info {}` to check the supported targets for this package.",
+//           target, package, package
+//         )
+//         .into(),
+//       );
+//     }
+//   }
+
+//   Ok(resolved_packages)
+// }
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct KnownPackages {
