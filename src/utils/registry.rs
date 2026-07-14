@@ -5,10 +5,7 @@ use chrono::{DateTime, Utc};
 
 use crate::{
   PackageDef,
-  utils::{
-    distro::DistroInfo,
-    package::{AppData, SupportedTarget},
-  },
+  utils::{distro::DistroInfo, package::AppData},
 };
 
 // This handles all the application registry related stuff, like fetching the list of verified apps etc., all from the main TuxMate GitHub repository.

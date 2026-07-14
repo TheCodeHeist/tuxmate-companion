@@ -161,6 +161,12 @@ fn main() {
     },
     None => {
       println!("No command provided. Use --help for usage information.");
+
+      println!(
+        "\n\n{} {}",
+        "Notice:".blue().bold(),
+        "Yes, this is supposed to open a sort of TUI, or connect to the TuxMate web application directly, but it's not implemented yet. For now, please use the command-line interface.".blue()
+      )
     }
   }
 }
