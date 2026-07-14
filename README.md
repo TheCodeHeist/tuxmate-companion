@@ -20,6 +20,12 @@ For most users, you can install TuxMate Companion directly with a one-liner that
    curl -fsSL https://raw.githubusercontent.com/TheCodeHeist/tuxmate-companion/main/install.sh | bash
    ```
 
+   To remove the binary later, run:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/TheCodeHeist/tuxmate-companion/main/uninstall.sh | bash
+   ```
+
 2. Developer / contributor workflow (optional):
 
    Clone the repository if you want to inspect or modify the source
@@ -35,9 +41,9 @@ For most users, you can install TuxMate Companion directly with a one-liner that
 
 - Run the companion CLI (example):
 
-  ./tuxmate-companion install <app-name>
-
-Replace <app-name> with the identifier of the app you want to install.
+  ```bash
+  tuxmate help
+  ```
 
 ## Contributing
 
